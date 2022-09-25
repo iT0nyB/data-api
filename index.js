@@ -4,6 +4,9 @@ const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 
+const crypto = require('crypto');
+const HMAC_KEY = 'cupcakes';
+
 const sequelize = new Sequelize(process.env.DATABASE_URL, {
   dialect: "postgres",
   // dialectOptions: {
@@ -62,6 +65,17 @@ app.get('/data', async (req,res)=>{
 
 app.post('/data', async (req,res)=>{
   let data = req.body;
+  let hmacExpected = crypto.createHmac('sha1',HMAC_KEY)
+      .update(JSON.stringify(data))
+      .digest('hex');
+
+  let hmac = req.headers['hmac'];
+
+  let hmacEqual = crypto.timingSafeEqual(Buffer.from(hmac), Buffer.from(hmacExpected));
+
+  if (!hmacEqual){
+    res.status(403).send("BAD HMAC");
+  }
   const sensorData = await SensorData.create(data);
   res.status(201).send(sensorData);
   return;
